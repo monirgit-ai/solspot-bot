@@ -193,7 +193,7 @@ class TradingBot:
 📊 <b>Current Status</b>
 • Equity: ${self.equity_repo.latest_equity().equity_usdt:,.2f}
 • Peak Equity: ${self.peak_equity:,.2f}
-• Today's P&L: ${self.equity_repo.today_metrics().pnl_today:,.2f}
+• Today's P&L: ${self.equity_repo.today_metrics().daily_pnl:,.2f}
 
 🔍 <b>Reason</b>
 {reason}
@@ -532,15 +532,20 @@ class TradingBot:
         try:
             # Check if paused
             if self.is_paused():
+                logger.debug("Trading is paused")
                 return False
             
             # Check if we have open trades for this symbol
             open_trades = self.get_open_trades()
             if any(t.symbol == self.symbol for t in open_trades):
+                logger.debug(f"Already have open trades for {self.symbol}")
                 return False
             
             # Check risk manager
-            return self.risk_manager.can_open_trade(self.current_bar)
+            can_trade = self.risk_manager.can_open_trade(self.current_bar)
+            if not can_trade:
+                logger.debug("Risk manager prevents trading")
+            return can_trade
             
         except Exception as e:
             logger.error(f"Error checking if should enter trade: {e}")
@@ -550,13 +555,17 @@ class TradingBot:
         """Process a trading signal"""
         try:
             if signal['signal'] != 'long':
+                logger.debug(f"Signal is not long: {signal['signal']}")
                 return
 
             if not self.should_enter_trade():
+                logger.debug("Should not enter trade - checking conditions...")
                 return
 
             symbol_info = self.exchange.get_symbol_info(self.symbol)
             lot_step = symbol_info.get('stepSize', 0.001)
+            
+            logger.info(f"Processing LONG signal - Entry: ${signal['entry_ref_price']:.2f}, SL: ${signal['sl']:.2f}, Lot Step: {lot_step}")
 
             qty = self.risk_manager.calculate_position_size(
                 signal['entry_ref_price'],
@@ -565,7 +574,7 @@ class TradingBot:
             )
 
             if qty <= 0:
-                logger.warning("Position size is zero or negative")
+                logger.warning(f"Position size is zero or negative: {qty}")
                 return
 
             trade = self.trade_repo.open_trade(
