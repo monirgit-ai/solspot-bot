@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}Trading Configuration{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-cog text-primary"></i> Trading Configuration
+            </h1>
+            <p class="text-muted">Customize your trading bot settings</p>
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Trading Settings</h6>
+                </div>
+                <div class="card-body">
+                    <form id="configForm" method="POST" action="/config/save">
+                        <!-- Trading Basics -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Trading Basics</h5>
+                                
+                                <div class="form-group">
+                                    <label for="trading_symbol">Trading Symbol</label>
+                                    <select class="form-control" id="trading_symbol" name="trading_symbol">
+                                        <option value="SOLUSDT" {% if config.trading_symbol == "SOLUSDT" %}selected{% endif %}>SOLUSDT (Solana)</option>
+                                        <option value="BTCUSDT" {% if config.trading_symbol == "BTCUSDT" %}selected{% endif %}>BTCUSDT (Bitcoin)</option>
+                                        <option value="ETHUSDT" {% if config.trading_symbol == "ETHUSDT" %}selected{% endif %}>ETHUSDT (Ethereum)</option>
+                                        <option value="ADAUSDT" {% if config.trading_symbol == "ADAUSDT" %}selected{% endif %}>ADAUSDT (Cardano)</option>
+                                        <option value="DOTUSDT" {% if config.trading_symbol == "DOTUSDT" %}selected{% endif %}>DOTUSDT (Polkadot)</option>
+                                        <option value="BNBUSDT" {% if config.trading_symbol == "BNBUSDT" %}selected{% endif %}>BNBUSDT (Binance Coin)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="timeframe">Timeframe</label>
+                                    <select class="form-control" id="timeframe" name="timeframe">
+                                        <option value="1m" {% if config.timeframe == "1m" %}selected{% endif %}>1 minute (Scalping)</option>
+                                        <option value="5m" {% if config.timeframe == "5m" %}selected{% endif %}>5 minutes (Short-term)</option>
+                                        <option value="15m" {% if config.timeframe == "15m" %}selected{% endif %}>15 minutes (Medium-term)</option>
+                                        <option value="30m" {% if config.timeframe == "30m" %}selected{% endif %}>30 minutes</option>
+                                        <option value="1h" {% if config.timeframe == "1h" %}selected{% endif %}>1 hour (Long-term)</option>
+                                        <option value="4h" {% if config.timeframe == "4h" %}selected{% endif %}>4 hours (Swing)</option>
+                                        <option value="1d" {% if config.timeframe == "1d" %}selected{% endif %}>1 day (Position)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="initial_equity">Initial Equity (USDT)</label>
+                                    <input type="number" class="form-control" id="initial_equity" name="initial_equity" 
+                                           value="{{ config.initial_equity }}" step="0.01" min="10">
+                                    <small class="form-text text-muted">Starting capital for position sizing calculations</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Risk Management</h5>
+                                
+                                <div class="form-group">
+                                    <label for="risk_per_trade_pct">Risk Per Trade (%)</label>
+                                    <input type="number" class="form-control" id="risk_per_trade_pct" name="risk_per_trade_pct" 
+                                           value="{{ config.risk_per_trade_pct }}" step="0.1" min="0.1" max="10">
+                                    <small class="form-text text-muted">Percentage of equity to risk per trade (0.1-10%)</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="daily_loss_stop_pct">Daily Loss Limit (%)</label>
+                                    <input type="number" class="form-control" id="daily_loss_stop_pct" name="daily_loss_stop_pct" 
+                                           value="{{ config.daily_loss_stop_pct }}" step="0.1" min="0.5" max="20">
+                                    <small class="form-text text-muted">Stop trading if daily loss exceeds this percentage</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="cooldown_bars">Cooldown Bars</label>
+                                    <input type="number" class="form-control" id="cooldown_bars" name="cooldown_bars" 
+                                           value="{{ config.cooldown_bars }}" min="0" max="10">
+                                    <small class="form-text text-muted">Number of bars to wait between trades</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stop Loss & Take Profit -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Stop Loss & Take Profit</h5>
+                                
+                                <div class="form-group">
+                                    <label for="stop_loss_pct">Stop Loss (%)</label>
+                                    <input type="number" class="form-control" id="stop_loss_pct" name="stop_loss_pct" 
+                                           value="{{ config.stop_loss_pct }}" step="0.1" min="0.5" max="10">
+                                    <small class="form-text text-muted">Stop loss percentage from entry price</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="take_profit_1_pct">Take Profit 1 (%)</label>
+                                    <input type="number" class="form-control" id="take_profit_1_pct" name="take_profit_1_pct" 
+                                           value="{{ config.take_profit_1_pct }}" step="0.1" min="0.5" max="20">
+                                    <small class="form-text text-muted">First take profit target</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="take_profit_2_pct">Take Profit 2 (%)</label>
+                                    <input type="number" class="form-control" id="take_profit_2_pct" name="take_profit_2_pct" 
+                                           value="{{ config.take_profit_2_pct }}" step="0.1" min="0.5" max="50">
+                                    <small class="form-text text-muted">Second take profit target (if using partial exits)</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Position Sizing</h5>
+                                
+                                <div class="form-group">
+                                    <label for="max_position_size_pct">Max Position Size (%)</label>
+                                    <input type="number" class="form-control" id="max_position_size_pct" name="max_position_size_pct" 
+                                           value="{{ config.max_position_size_pct }}" step="0.1" min="1" max="50">
+                                    <small class="form-text text-muted">Maximum percentage of equity per position</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="min_position_size_usdt">Min Position Size (USDT)</label>
+                                    <input type="number" class="form-control" id="min_position_size_usdt" name="min_position_size_usdt" 
+                                           value="{{ config.min_position_size_usdt }}" step="0.01" min="1">
+                                    <small class="form-text text-muted">Minimum position size in USDT</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Technical Analysis -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">RSI Settings</h5>
+                                
+                                <div class="form-group">
+                                    <label for="rsi_period">RSI Period</label>
+                                    <input type="number" class="form-control" id="rsi_period" name="rsi_period" 
+                                           value="{{ config.rsi_period }}" min="5" max="50">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="rsi_overbought">RSI Overbought Level</label>
+                                    <input type="number" class="form-control" id="rsi_overbought" name="rsi_overbought" 
+                                           value="{{ config.rsi_overbought }}" min="60" max="90">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="rsi_oversold">RSI Oversold Level</label>
+                                    <input type="number" class="form-control" id="rsi_oversold" name="rsi_oversold" 
+                                           value="{{ config.rsi_oversold }}" min="10" max="40">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">MACD Settings</h5>
+                                
+                                <div class="form-group">
+                                    <label for="macd_fast">MACD Fast Period</label>
+                                    <input type="number" class="form-control" id="macd_fast" name="macd_fast" 
+                                           value="{{ config.macd_fast }}" min="5" max="20">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="macd_slow">MACD Slow Period</label>
+                                    <input type="number" class="form-control" id="macd_slow" name="macd_slow" 
+                                           value="{{ config.macd_slow }}" min="20" max="50">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="macd_signal">MACD Signal Period</label>
+                                    <input type="number" class="form-control" id="macd_signal" name="macd_signal" 
+                                           value="{{ config.macd_signal }}" min="5" max="20">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notifications & Safety -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Notifications</h5>
+                                
+                                <div class="form-group">
+                                    <label for="heartbeat_interval_hours">Heartbeat Interval (hours)</label>
+                                    <input type="number" class="form-control" id="heartbeat_interval_hours" name="heartbeat_interval_hours" 
+                                           value="{{ config.heartbeat_interval_hours }}" min="1" max="24">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="daily_report_time">Daily Report Time</label>
+                                    <input type="time" class="form-control" id="daily_report_time" name="daily_report_time" 
+                                           value="{{ config.daily_report_time }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">Safety Settings</h5>
+                                
+                                <div class="form-group">
+                                    <label for="max_drawdown_pct">Max Drawdown (%)</label>
+                                    <input type="number" class="form-control" id="max_drawdown_pct" name="max_drawdown_pct" 
+                                           value="{{ config.max_drawdown_pct }}" step="0.1" min="5" max="50">
+                                    <small class="form-text text-muted">Stop trading if drawdown exceeds this percentage</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="max_api_failures">Max API Failures</label>
+                                    <input type="number" class="form-control" id="max_api_failures" name="max_api_failures" 
+                                           value="{{ config.max_api_failures }}" min="1" max="20">
+                                    <small class="form-text text-muted">Pause trading after consecutive API failures</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="/dashboard" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                                    </a>
+                                    <div>
+                                        <button type="button" class="btn btn-info mr-2" onclick="loadPreset('conservative')">
+                                            <i class="fas fa-shield-alt"></i> Conservative
+                                        </button>
+                                        <button type="button" class="btn btn-warning mr-2" onclick="loadPreset('moderate')">
+                                            <i class="fas fa-balance-scale"></i> Moderate
+                                        </button>
+                                        <button type="button" class="btn btn-danger mr-2" onclick="loadPreset('aggressive')">
+                                            <i class="fas fa-rocket"></i> Aggressive
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Save Configuration
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="modal fade" id="resultModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Configuration Result</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Preset configurations
+const presets = {
+    conservative: {
+        trading_symbol: 'BTCUSDT',
+        timeframe: '1h',
+        risk_per_trade_pct: 0.2,
+        daily_loss_stop_pct: 1.0,
+        stop_loss_pct: 1.5,
+        take_profit_1_pct: 3.0,
+        max_position_size_pct: 5.0
+    },
+    moderate: {
+        trading_symbol: 'SOLUSDT',
+        timeframe: '15m',
+        risk_per_trade_pct: 0.5,
+        daily_loss_stop_pct: 1.5,
+        stop_loss_pct: 2.0,
+        take_profit_1_pct: 4.0,
+        max_position_size_pct: 10.0
+    },
+    aggressive: {
+        trading_symbol: 'SOLUSDT',
+        timeframe: '5m',
+        risk_per_trade_pct: 1.0,
+        daily_loss_stop_pct: 3.0,
+        stop_loss_pct: 2.5,
+        take_profit_1_pct: 5.0,
+        max_position_size_pct: 15.0
+    }
+};
+
+function loadPreset(presetName) {
+    const preset = presets[presetName];
+    if (preset) {
+        for (const [key, value] of Object.entries(preset)) {
+            const element = document.getElementById(key);
+            if (element) {
+                element.value = value;
+            }
+        }
+        showModal('Preset Loaded', `${presetName.charAt(0).toUpperCase() + presetName.slice(1)} preset loaded successfully!`);
+    }
+}
+
+// Handle form submission
+document.getElementById('configForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const response = await fetch('/config/save', {
+        method: 'POST',
+        body: formData
+    });
+    
+    const result = await response.json();
+    showModal(result.status === 'success' ? 'Success' : 'Error', result.message);
+});
+
+function showModal(title, message) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').textContent = message;
+    $('#resultModal').modal('show');
+}
+</script>
+{% endblock %}

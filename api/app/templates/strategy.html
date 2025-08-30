@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Analysis - SolSpot Bot{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-brain me-2"></i>
+                        Strategy Analysis - {{ trading_symbol }} ({{ timeframe }})
+                        {% if mode == "live" %}
+                            <span class="badge bg-success ms-2">LIVE MODE</span>
+                        {% else %}
+                            <span class="badge bg-warning ms-2">PAPER MODE</span>
+                        {% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        This page shows the real-time analysis of why the bot is taking or not taking trades. 
+                        Each condition is checked and explained in human-readable terms.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Logic Explanation -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Trading Strategy Logic
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">✅ Entry Conditions (ALL must be true):</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Price > EMA20 (Uptrend)</li>
+                                <li><i class="fas fa-check text-success me-2"></i>EMA20 > EMA50 (Trend Alignment)</li>
+                                <li><i class="fas fa-check text-success me-2"></i>RSI > 50 (Momentum)</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Not in Choppy Market</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">❌ Exit Conditions:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-times text-danger me-2"></i>Stop Loss Hit</li>
+                                <li><i class="fas fa-times text-danger me-2"></i>Take Profit Hit</li>
+                                <li><i class="fas fa-times text-danger me-2"></i>Trend Reversal</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real-time Analysis -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Real-time Strategy Analysis
+                    </h5>
+                    <button class="btn btn-sm btn-outline-light" onclick="location.reload()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="strategy-log" style="max-height: 600px; overflow-y: auto;">
+                        {% if strategy_analysis %}
+                            {% for analysis in strategy_analysis %}
+                                <div class="strategy-entry p-3 border-bottom">
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-shrink-0 me-3">
+                                            {% if analysis.type == 'market_data' %}
+                                                <i class="fas fa-dollar-sign text-primary fa-lg"></i>
+                                            {% elif analysis.type == 'indicator' %}
+                                                <i class="fas fa-chart-bar text-info fa-lg"></i>
+                                            {% elif analysis.type == 'condition' %}
+                                                {% if analysis.status == 'success' %}
+                                                    <i class="fas fa-check-circle text-success fa-lg"></i>
+                                                {% elif analysis.status == 'danger' %}
+                                                    <i class="fas fa-times-circle text-danger fa-lg"></i>
+                                                {% elif analysis.status == 'warning' %}
+                                                    <i class="fas fa-exclamation-triangle text-warning fa-lg"></i>
+                                                {% else %}
+                                                    <i class="fas fa-info-circle text-info fa-lg"></i>
+                                                {% endif %}
+                                            {% elif analysis.type == 'decision' %}
+                                                {% if analysis.status == 'success' %}
+                                                    <i class="fas fa-bullseye text-success fa-lg"></i>
+                                                {% else %}
+                                                    <i class="fas fa-pause-circle text-warning fa-lg"></i>
+                                                {% endif %}
+                                            {% elif analysis.type == 'error' %}
+                                                <i class="fas fa-exclamation-circle text-danger fa-lg"></i>
+                                            {% else %}
+                                                <i class="fas fa-info-circle text-info fa-lg"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="message-content">
+                                                    <p class="mb-1 fw-bold">{{ analysis.message }}</p>
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-clock me-1"></i>
+                                                        {{ analysis.timestamp }}
+                                                    </small>
+                                                </div>
+                                                <div class="flex-shrink-0">
+                                                    {% if analysis.status == 'success' %}
+                                                        <span class="badge bg-success">SUCCESS</span>
+                                                    {% elif analysis.status == 'danger' %}
+                                                        <span class="badge bg-danger">FAILED</span>
+                                                    {% elif analysis.status == 'warning' %}
+                                                        <span class="badge bg-warning">WARNING</span>
+                                                    {% elif analysis.status == 'info' %}
+                                                        <span class="badge bg-info">INFO</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">UNKNOWN</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="p-4 text-center text-muted">
+                                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                                <p>Loading strategy analysis...</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto-refresh Info -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Note:</strong> This analysis is based on real-time market data. 
+                {% if mode == "live" %}
+                    Data is fetched directly from Binance API.
+                {% else %}
+                    Switch to LIVE mode to see real-time analysis with actual market data.
+                {% endif %}
+                Click "Refresh" to update the analysis.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.strategy-log {
+    background-color: #f8f9fa;
+}
+
+.strategy-entry {
+    transition: background-color 0.2s ease;
+}
+
+.strategy-entry:hover {
+    background-color: #e9ecef;
+}
+
+.strategy-entry:last-child {
+    border-bottom: none !important;
+}
+
+.message-content p {
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+    .strategy-entry {
+        padding: 1rem !important;
+    }
+    
+    .message-content p {
+        font-size: 0.9rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+    }
+}
+</style>
+
+<script>
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    // Only auto-refresh if user is on this page
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
+
+// Add smooth scrolling to new entries
+document.addEventListener('DOMContentLoaded', function() {
+    const logContainer = document.querySelector('.strategy-log');
+    if (logContainer) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+});
+</script>
+{% endblock %}

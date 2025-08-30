@@ -1,0 +1,983 @@
+{% extends "base.html" %}
+
+{% block title %}SOL Spot Bot Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-md-4">
+    <!-- Header -->
+    <div class="row mb-3 mb-md-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between">
+                <div class="mb-2 mb-md-0">
+                    <h1 class="h4 h-md-3 mb-1 mb-md-2 text-gray-800">
+                        <i class="fas fa-chart-line text-primary me-2"></i> SOL Spot Bot
+                    </h1>
+                    <p class="text-muted small mb-0">Real-time trading performance and analytics</p>
+                </div>
+                
+                <!-- Mobile Menu Toggle -->
+                <div class="d-md-none">
+                    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Live Mode Indicator -->
+            {% if mode == "live" %}
+            <div class="alert alert-success alert-dismissible fade show py-2 py-md-3" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-broadcast-tower me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>LIVE MODE</strong>
+                        <div class="small">Connected to Binance with real account data</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning alert-dismissible fade show py-2 py-md-3" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-flask me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>PAPER MODE</strong>
+                        <div class="small">Simulated trading environment</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Bot Control Panel -->
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-primary text-white py-2 py-md-3">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-cogs me-2"></i> Bot Control
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row align-items-center">
+                        <div class="col-12 col-md-6 mb-2 mb-md-0">
+                            <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center">
+                                <span class="text-muted small mb-1 mb-sm-0 me-sm-3"><strong>Status:</strong></span>
+                                <div class="d-flex">
+                                    <span id="bot-status" class="badge bg-success me-2">
+                                        <i class="fas fa-play me-1"></i> Running
+                                    </span>
+                                    <span id="bot-paused" class="badge bg-warning me-2" style="display: none;">
+                                        <i class="fas fa-pause me-1"></i> Paused
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="d-grid d-md-flex gap-2">
+                                <button type="button" class="btn btn-warning btn-sm" id="pause-btn" onclick="pauseBot()">
+                                    <i class="fas fa-pause me-1"></i> Pause
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" id="resume-btn" onclick="resumeBot()" style="display: none;">
+                                    <i class="fas fa-play me-1"></i> Resume
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Open Positions Card -->
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="text-muted small text-uppercase mb-1">
+                                Open Positions
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-info">
+                                {{ open_trades|length }}
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-chart-line fa-2x text-info opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Win Rate Card -->
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="text-muted small text-uppercase mb-1">
+                                Win Rate
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-warning">
+                                {{ "%.1f"|format(trade_summary.win_rate if trade_summary else 0) }}%
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-trophy fa-2x text-warning opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Account Balance (Live Mode Only) -->
+    {% if mode == "live" and live_balances %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white py-2 py-md-3">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-wallet me-2"></i> Live Account Balance
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row g-2">
+                        {% for balance in live_balances %}
+                        <div class="col-6 col-md-3">
+                            <div class="balance-card p-2 rounded border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="font-weight-bold text-primary small">{{ balance.asset }}</span>
+                                    <span class="text-success fw-bold">{{ "%.4f"|format(balance.total) }}</span>
+                                </div>
+                                {% if balance.locked > 0 %}
+                                <div class="small text-muted">
+                                    <i class="fas fa-lock me-1"></i>Locked: {{ "%.4f"|format(balance.locked) }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Key Metrics Cards -->
+    <div class="row g-3 mb-3">
+        <!-- Equity Card -->
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="text-muted small text-uppercase mb-1">
+                                Total Equity
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-primary" id="equity-value">
+                                ${{ "%.2f"|format(latest_equity.equity_usdt if latest_equity else 0) }}
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-dollar-sign fa-2x text-primary opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today PnL Card -->
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="text-muted small text-uppercase mb-1">
+                                Today's P&L
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-success" id="today-pnl">
+                                ${{ "%.2f"|format(today_metrics.daily_pnl if today_metrics else 0) }}
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-calendar-day fa-2x text-success opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total PnL Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Total P&L
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="total-pnl">
+                                ${{ "%.2f"|format(trade_summary.total_pnl if trade_summary else 0) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-area fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Open Positions Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Open Positions
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="open-positions">
+                                {{ open_trades|length }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <!-- Equity Curve Chart -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Equity Curve (Last 30 Days)</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                             aria-labelledby="dropdownMenuLink">
+                            <div class="dropdown-header">Chart Options:</div>
+                            <a class="dropdown-item" href="#" onclick="updateEquityChart('7d')">Last 7 Days</a>
+                            <a class="dropdown-item" href="#" onclick="updateEquityChart('30d')">Last 30 Days</a>
+                            <a class="dropdown-item" href="#" onclick="updateEquityChart('90d')">Last 90 Days</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="equityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PnL by Day Chart -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Daily P&L</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink2"
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                             aria-labelledby="dropdownMenuLink2">
+                            <div class="dropdown-header">Chart Options:</div>
+                            <a class="dropdown-item" href="#" onclick="updatePnLChart('7d')">Last 7 Days</a>
+                            <a class="dropdown-item" href="#" onclick="updatePnLChart('14d')">Last 14 Days</a>
+                            <a class="dropdown-item" href="#" onclick="updatePnLChart('30d')">Last 30 Days</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie pt-4 pb-2">
+                        <canvas id="pnlChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Positions Section -->
+    {% if open_trades %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Open Positions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="openPositionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Quantity</th>
+                                    <th>Entry Price</th>
+                                    <th>Current Price</th>
+                                    <th>Unrealized P&L</th>
+                                    <th>Stop Loss</th>
+                                    <th>Take Profit</th>
+                                    <th>Entry Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trade in open_trades %}
+                                <tr>
+                                    <td>{{ trade.symbol }}</td>
+                                    <td>{{ "%.3f"|format(trade.qty) }}</td>
+                                    <td>${{ "%.2f"|format(trade.entry_price) }}</td>
+                                    <td class="current-price" data-symbol="{{ trade.symbol }}">Loading...</td>
+                                    <td class="unrealized-pnl" data-entry="{{ trade.entry_price }}" data-qty="{{ trade.qty }}">Loading...</td>
+                                    <td>${{ "%.2f"|format(trade.sl) }}</td>
+                                    <td>${{ "%.2f"|format(trade.tp1) }}</td>
+                                    <td>{{ trade.entry_ts.strftime('%Y-%m-%d %H:%M') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Recent Trades -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Trades</h6>
+                    <a href="/api/trades" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="tradesTable">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="entry_ts">Entry Time</th>
+                                    <th class="sortable" data-sort="symbol">Symbol</th>
+                                    <th class="sortable" data-sort="qty">Quantity</th>
+                                    <th class="sortable" data-sort="entry_price">Entry Price</th>
+                                    <th class="sortable" data-sort="exit_price">Exit Price</th>
+                                    <th class="sortable" data-sort="pnl_usdt">P&L</th>
+                                    <th class="sortable" data-sort="reason_exit">Exit Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trade in trades %}
+                                <tr>
+                                    <td>{{ trade.entry_ts.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ trade.symbol }}</td>
+                                    <td>{{ "%.3f"|format(trade.qty) }}</td>
+                                    <td>${{ "%.2f"|format(trade.entry_price) }}</td>
+                                    <td>
+                                        {% if trade.exit_price %}
+                                            ${{ "%.2f"|format(trade.exit_price) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if trade.pnl_usdt %}
+                                            <span class="badge badge-{{ 'success' if trade.pnl_usdt > 0 else 'danger' }}">
+                                                ${{ "%.2f"|format(trade.pnl_usdt) }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if trade.reason_exit %}
+                                            <span class="badge badge-info">{{ trade.reason_exit }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Open</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Feed -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Alerts Feed</h6>
+                </div>
+                <div class="card-body">
+                    <div id="alertsFeed">
+                        {% for alert in alerts %}
+                        <div class="alert alert-{{ 'danger' if alert.level == 'error' else 'warning' if alert.level == 'warn' else 'info' }} alert-dismissible fade show" role="alert">
+                            <small class="text-muted">{{ alert.ts.strftime('%H:%M') }}</small>
+                            <div>{{ alert.message }}</div>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Global variables
+let equityChart, pnlChart;
+let currentPrices = {};
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    initializeTables();
+    startAutoRefresh();
+    updateCurrentPrices();
+});
+
+// Initialize Chart.js charts
+function initializeCharts() {
+    // Equity Chart
+    const equityCtx = document.getElementById('equityChart').getContext('2d');
+    equityChart = new Chart(equityCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Equity',
+                data: [],
+                borderColor: 'rgb(78, 115, 223)',
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Equity ($)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // PnL Chart
+    const pnlCtx = document.getElementById('pnlChart').getContext('2d');
+    pnlChart = new Chart(pnlCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Daily P&L',
+                data: [],
+                backgroundColor: [],
+                borderColor: [],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'P&L ($)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Load initial data
+    loadEquityData('30d');
+    loadPnLData('14d');
+}
+
+// Load equity data
+async function loadEquityData(period = '30d') {
+    try {
+        const response = await fetch(`/api/equity/history?period=${period}`);
+        const data = await response.json();
+        
+        equityChart.data.labels = data.map(item => new Date(item.ts).toLocaleDateString());
+        equityChart.data.datasets[0].data = data.map(item => item.equity_usdt);
+        equityChart.update();
+    } catch (error) {
+        console.error('Error loading equity data:', error);
+    }
+}
+
+// Load PnL data
+async function loadPnLData(period = '14d') {
+    try {
+        const response = await fetch(`/api/trades/daily-pnl?period=${period}`);
+        const data = await response.json();
+        
+        pnlChart.data.labels = data.map(item => new Date(item.date).toLocaleDateString());
+        pnlChart.data.datasets[0].data = data.map(item => item.pnl);
+        pnlChart.data.datasets[0].backgroundColor = data.map(item => 
+            item.pnl >= 0 ? 'rgba(28, 200, 138, 0.8)' : 'rgba(231, 74, 59, 0.8)'
+        );
+        pnlChart.data.datasets[0].borderColor = data.map(item => 
+            item.pnl >= 0 ? 'rgb(28, 200, 138)' : 'rgb(231, 74, 59)'
+        );
+        pnlChart.update();
+    } catch (error) {
+        console.error('Error loading PnL data:', error);
+    }
+}
+
+// Update equity chart
+function updateEquityChart(period) {
+    loadEquityData(period);
+}
+
+// Update PnL chart
+function updatePnLChart(period) {
+    loadPnLData(period);
+}
+
+// Initialize sortable tables
+function initializeTables() {
+    // Make table headers sortable
+    document.querySelectorAll('.sortable').forEach(header => {
+        header.addEventListener('click', function() {
+            const table = this.closest('table');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const column = this.dataset.sort;
+            const isAscending = this.classList.contains('asc');
+            
+            // Remove existing sort classes
+            table.querySelectorAll('th').forEach(th => th.classList.remove('asc', 'desc'));
+            
+            // Add sort class
+            this.classList.add(isAscending ? 'desc' : 'asc');
+            
+            // Sort rows
+            rows.sort((a, b) => {
+                const aValue = getCellValue(a, column);
+                const bValue = getCellValue(b, column);
+                
+                if (isAscending) {
+                    return aValue > bValue ? -1 : 1;
+                } else {
+                    return aValue < bValue ? -1 : 1;
+                }
+            });
+            
+            // Reorder rows
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+}
+
+// Get cell value for sorting
+function getCellValue(row, column) {
+    const cell = row.querySelector(`[data-${column}]`) || row.cells[0];
+    let value = cell.textContent.trim();
+    
+    // Handle numeric values
+    if (value.includes('$')) {
+        value = parseFloat(value.replace('$', '').replace(',', ''));
+    } else if (value.includes('%')) {
+        value = parseFloat(value.replace('%', ''));
+    } else if (!isNaN(value)) {
+        value = parseFloat(value);
+    }
+    
+    return value;
+}
+
+// Update current prices
+async function updateCurrentPrices() {
+    try {
+        const symbols = Array.from(document.querySelectorAll('.current-price')).map(cell => cell.dataset.symbol);
+        const uniqueSymbols = [...new Set(symbols)];
+        
+        for (const symbol of uniqueSymbols) {
+            const response = await fetch(`/api/price/${symbol}`);
+            const data = await response.json();
+            currentPrices[symbol] = data.price;
+        }
+        
+        // Update price cells
+        document.querySelectorAll('.current-price').forEach(cell => {
+            const symbol = cell.dataset.symbol;
+            const price = currentPrices[symbol];
+            if (price) {
+                cell.textContent = `$${price.toFixed(2)}`;
+            }
+        });
+        
+        // Update unrealized P&L
+        document.querySelectorAll('.unrealized-pnl').forEach(cell => {
+            const entryPrice = parseFloat(cell.dataset.entry);
+            const qty = parseFloat(cell.dataset.qty);
+            const symbol = cell.closest('tr').querySelector('.current-price').dataset.symbol;
+            const currentPrice = currentPrices[symbol];
+            
+            if (currentPrice) {
+                const pnl = (currentPrice - entryPrice) * qty;
+                const pnlClass = pnl >= 0 ? 'text-success' : 'text-danger';
+                cell.innerHTML = `<span class="${pnlClass}">$${pnl.toFixed(2)}</span>`;
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error updating prices:', error);
+    }
+}
+
+// Auto-refresh alerts
+async function refreshAlerts() {
+    try {
+        const response = await fetch('/api/alerts');
+        const alerts = await response.json();
+        
+        const alertsFeed = document.getElementById('alertsFeed');
+        alertsFeed.innerHTML = '';
+        
+        alerts.forEach(alert => {
+            const alertClass = alert.level === 'error' ? 'danger' : alert.level === 'warn' ? 'warning' : 'info';
+            const time = new Date(alert.ts).toLocaleTimeString('en-US', { hour12: false });
+            
+            alertsFeed.innerHTML += `
+                <div class="alert alert-${alertClass} alert-dismissible fade show" role="alert">
+                    <small class="text-muted">${time}</small>
+                    <div>${alert.message}</div>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            `;
+        });
+    } catch (error) {
+        console.error('Error refreshing alerts:', error);
+    }
+}
+
+// Start auto-refresh
+function startAutoRefresh() {
+    // Update prices every 10 seconds
+    setInterval(updateCurrentPrices, 10000);
+    
+    // Refresh alerts every 30 seconds
+    setInterval(refreshAlerts, 30000);
+    
+    // Refresh page data every 60 seconds
+    setInterval(() => {
+        location.reload();
+    }, 60000);
+}
+
+// Add sort indicators to table headers
+document.querySelectorAll('.sortable').forEach(header => {
+    header.style.cursor = 'pointer';
+    header.innerHTML += ' <i class="fas fa-sort"></i>';
+});
+
+// Bot Control Functions
+async function pauseBot() {
+    try {
+        const response = await fetch('/api/bot/pause', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Update UI
+            document.getElementById('bot-status').style.display = 'none';
+            document.getElementById('bot-paused').style.display = 'inline-block';
+            document.getElementById('pause-btn').style.display = 'none';
+            document.getElementById('resume-btn').style.display = 'inline-block';
+            
+            // Show success message
+            showAlert('Bot paused successfully', 'success');
+        } else {
+            showAlert('Failed to pause bot: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error pausing bot:', error);
+        showAlert('Error pausing bot', 'danger');
+    }
+}
+
+async function resumeBot() {
+    try {
+        const response = await fetch('/api/bot/resume', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Update UI
+            document.getElementById('bot-status').style.display = 'inline-block';
+            document.getElementById('bot-paused').style.display = 'none';
+            document.getElementById('pause-btn').style.display = 'inline-block';
+            document.getElementById('resume-btn').style.display = 'none';
+            
+            // Show success message
+            showAlert('Bot resumed successfully', 'success');
+        } else {
+            showAlert('Failed to resume bot: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error resuming bot:', error);
+        showAlert('Error resuming bot', 'danger');
+    }
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at the top of the container
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Check bot status on page load
+async function checkBotStatus() {
+    try {
+        const response = await fetch('/api/bot/status');
+        const result = await response.json();
+        
+        if (result.is_paused) {
+            // Update UI to show paused state
+            document.getElementById('bot-status').style.display = 'none';
+            document.getElementById('bot-paused').style.display = 'inline-block';
+            document.getElementById('pause-btn').style.display = 'none';
+            document.getElementById('resume-btn').style.display = 'inline-block';
+        }
+    } catch (error) {
+        console.error('Error checking bot status:', error);
+    }
+}
+
+// Check status when page loads
+document.addEventListener('DOMContentLoaded', checkBotStatus);
+</script>
+
+<style>
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .h5 {
+        font-size: 1.1rem;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .table td, .table th {
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+/* Balance cards styling */
+.balance-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    transition: all 0.3s ease;
+}
+
+.balance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Card hover effects */
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+/* Table styling */
+.sortable:hover {
+    background-color: #f8f9fc;
+    cursor: pointer;
+}
+
+.sortable.asc::after {
+    content: ' ▲';
+    color: #4e73df;
+}
+
+.sortable.desc::after {
+    content: ' ▼';
+    color: #4e73df;
+}
+
+/* Chart containers */
+.chart-area {
+    position: relative;
+    height: 20rem;
+    width: 100%;
+}
+
+.chart-pie {
+    position: relative;
+    height: 15rem;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .chart-area {
+        height: 15rem;
+    }
+    
+    .chart-pie {
+        height: 12rem;
+    }
+}
+
+/* Alerts feed */
+#alertsFeed {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.alert {
+    margin-bottom: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.alert:last-child {
+    margin-bottom: 0;
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Button styling */
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Loading animation */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Success/Error colors */
+.text-success {
+    color: #198754 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-warning {
+    color: #fd7e14 !important;
+}
+
+.text-info {
+    color: #0dcaf0 !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}

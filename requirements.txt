@@ -1,0 +1,15 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+pydantic-settings==2.1.0
+pandas==2.1.4
+ta==0.10.2
+httpx==0.25.2
+python-telegram-bot==20.7
+jinja2==3.1.2
+python-multipart==0.0.6
+alembic==1.13.1
+binance-connector==3.5.0
+APScheduler==3.10.4
+pytz==2023.3
