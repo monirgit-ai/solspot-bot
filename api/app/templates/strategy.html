@@ -204,6 +204,21 @@
 </style>
 
 <script>
+// Update browser title with current SOL price
+async function updateBrowserTitle() {
+    try {
+        const response = await fetch('/api/price/SOLUSDT');
+        const data = await response.json();
+        
+        if (data.price) {
+            const price = parseFloat(data.price);
+            updateBrowserTitleWithPrice(price);
+        }
+    } catch (error) {
+        console.error('Error updating browser title:', error);
+    }
+}
+
 // Auto-refresh every 30 seconds
 setInterval(function() {
     // Only auto-refresh if user is on this page
@@ -212,12 +227,18 @@ setInterval(function() {
     }
 }, 30000);
 
-// Add smooth scrolling to new entries
+// Add smooth scrolling to new entries and update title
 document.addEventListener('DOMContentLoaded', function() {
     const logContainer = document.querySelector('.strategy-log');
     if (logContainer) {
         logContainer.scrollTop = logContainer.scrollHeight;
     }
+    
+    // Update browser title with current SOL price
+    updateBrowserTitle();
+    
+    // Update title every 10 seconds
+    setInterval(updateBrowserTitle, 10000);
 });
 </script>
 {% endblock %}

@@ -107,6 +107,8 @@ def daily_guardrails(trades_today: int, pnl_today: float, stop_pct: float,
         # Calculate daily loss limit
         daily_loss_limit = start_equity * stop_pct
         
+        logger.info(f"Daily guardrails check: trades_today={trades_today}, pnl_today=${pnl_today:.2f}, start_equity=${start_equity:.2f}, daily_loss_limit=${daily_loss_limit:.2f}")
+        
         # Check if daily loss limit exceeded
         if pnl_today < -daily_loss_limit:
             logger.warning(f"Daily loss limit exceeded: P&L ${pnl_today:.2f}, limit ${-daily_loss_limit:.2f}")
@@ -118,7 +120,7 @@ def daily_guardrails(trades_today: int, pnl_today: float, stop_pct: float,
             logger.warning(f"Maximum trades per day reached: {trades_today}")
             return False
         
-        logger.debug(f"Daily guardrails passed: trades={trades_today}, pnl=${pnl_today:.2f}")
+        logger.info(f"Daily guardrails passed: trades={trades_today}, pnl=${pnl_today:.2f}")
         return True
         
     except Exception as e:
@@ -146,6 +148,12 @@ class CooldownTracker:
         try:
             if self.last_close_bar is not None:
                 self.bars_since_close = current_bar - self.last_close_bar
+            else:
+                # If no trade has been closed yet, we're not in cooldown
+                self.bars_since_close = self.cooldown_bars
+                self.is_in_cooldown = False
+                logger.info(f"Cooldown: No previous trades, allowing trading")
+                return
             
             # Check if cooldown period has passed
             if self.bars_since_close >= self.cooldown_bars:
@@ -153,7 +161,7 @@ class CooldownTracker:
             else:
                 self.is_in_cooldown = True
                 
-            logger.debug(f"Cooldown: bars_since_close={self.bars_since_close}, in_cooldown={self.is_in_cooldown}")
+            logger.info(f"Cooldown: bars_since_close={self.bars_since_close}, in_cooldown={self.is_in_cooldown}")
             
         except Exception as e:
             logger.error(f"Error updating cooldown tracker: {e}")
@@ -227,8 +235,11 @@ class RiskManager:
         logger.info(f"Risk manager initialized: equity=${initial_equity:.2f}, risk={risk_per_trade_pct*100:.1f}%, daily_stop={daily_loss_stop_pct*100:.1f}%")
     
     def update_equity(self, new_equity: float) -> None:
-        """Update current equity"""
+        """Update current equity and recalculate daily P&L"""
         self.current_equity = new_equity
+        # Recalculate daily P&L based on current equity vs start equity
+        self.today_pnl = new_equity - self.today_start_equity
+        logger.info(f"Equity updated: ${new_equity:.2f}, Daily P&L: ${self.today_pnl:.2f}")
     
     def update_daily_pnl(self, pnl: float) -> None:
         """Update today's P&L"""
@@ -296,6 +307,10 @@ class RiskManager:
         # Update cooldown tracker
         self.cooldown_tracker.update_bar(current_bar)
         
+        # Log cooldown status
+        cooldown_status = self.cooldown_tracker.get_cooldown_status()
+        logger.info(f"Cooldown status: {cooldown_status}")
+        
         # Check daily guardrails
         if not self.check_daily_guardrails():
             logger.warning("Daily guardrails prevent new trade")
@@ -303,7 +318,7 @@ class RiskManager:
         
         # Check cooldown
         if not self.cooldown_tracker.can_trade():
-            logger.debug("Cooldown period active, cannot trade")
+            logger.info("Cooldown period active, cannot trade")
             return False
         
         return True

@@ -11,7 +11,7 @@
                 <div class="mb-2 mb-md-0">
                     <h1 class="h4 h-md-3 mb-1 mb-md-2 text-gray-800">
                         <i class="fas fa-chart-line text-primary me-2"></i> SOL Spot Bot
-                    </h1>
+            </h1>
                     <p class="text-muted small mb-0">Real-time trading performance and analytics</p>
                 </div>
                 
@@ -451,6 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTables();
     startAutoRefresh();
     updateCurrentPrices();
+    updateBrowserTitle();
 });
 
 // Initialize Chart.js charts
@@ -677,6 +678,24 @@ async function updateCurrentPrices() {
         
     } catch (error) {
         console.error('Error updating prices:', error);
+    }
+    
+    // Update browser title with current SOL price
+    updateBrowserTitle();
+}
+
+// Update browser title with current SOL price
+async function updateBrowserTitle() {
+    try {
+        const response = await fetch('/api/price/SOLUSDT');
+        const data = await response.json();
+        
+        if (data.price) {
+            const price = parseFloat(data.price);
+            updateBrowserTitleWithPrice(price);
+        }
+    } catch (error) {
+        console.error('Error updating browser title:', error);
     }
 }
 

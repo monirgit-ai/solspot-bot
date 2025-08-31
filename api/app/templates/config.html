@@ -331,5 +331,26 @@ function showModal(title, message) {
     document.getElementById('modalBody').textContent = message;
     $('#resultModal').modal('show');
 }
+
+// Update browser title with current SOL price
+async function updateBrowserTitle() {
+    try {
+        const response = await fetch('/api/price/SOLUSDT');
+        const data = await response.json();
+        
+        if (data.price) {
+            const price = parseFloat(data.price);
+            updateBrowserTitleWithPrice(price);
+        }
+    } catch (error) {
+        console.error('Error updating browser title:', error);
+    }
+}
+
+// Update title on page load and every 10 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    updateBrowserTitle();
+    setInterval(updateBrowserTitle, 10000);
+});
 </script>
 {% endblock %}

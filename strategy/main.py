@@ -143,10 +143,10 @@ class TradingBot:
             daily_loss_stop_pct = float(self.setting_repo.get_setting('daily_loss_stop_pct') or '0.015')
             daily_loss_limit = self.peak_equity * daily_loss_stop_pct
             
-            if today_metrics and today_metrics.pnl_today < -daily_loss_limit:
+            if today_metrics and today_metrics['daily_pnl'] < -daily_loss_limit:
                 await self.trigger_kill_switch(
                     "Daily Loss Stop",
-                    f"Daily P&L (${today_metrics.pnl_today:,.2f}) exceeded limit (${-daily_loss_limit:,.2f})"
+                    f"Daily P&L (${today_metrics['daily_pnl']:,.2f}) exceeded limit (${-daily_loss_limit:,.2f})"
                 )
                 return
             
@@ -193,7 +193,7 @@ class TradingBot:
 📊 <b>Current Status</b>
 • Equity: ${self.equity_repo.latest_equity().equity_usdt:,.2f}
 • Peak Equity: ${self.peak_equity:,.2f}
-• Today's P&L: ${self.equity_repo.today_metrics().daily_pnl:,.2f}
+• Today's P&L: ${self.equity_repo.today_metrics()['daily_pnl']:,.2f}
 
 🔍 <b>Reason</b>
 {reason}
@@ -300,7 +300,7 @@ class TradingBot:
 • Current: ${current_equity:,.2f}
 • Peak: ${self.peak_equity:,.2f}
 • Drawdown: {drawdown_pct:.1f}%
-• Today's P&L: ${today_metrics.pnl_today:,.2f}
+• Today's P&L: ${today_metrics['daily_pnl']:,.2f}
 
 📈 <b>Trading Summary</b>
 • Total Trades: {total_trades}
@@ -532,19 +532,19 @@ class TradingBot:
         try:
             # Check if paused
             if self.is_paused():
-                logger.debug("Trading is paused")
+                logger.info("Trading is paused")
                 return False
             
             # Check if we have open trades for this symbol
             open_trades = self.get_open_trades()
             if any(t.symbol == self.symbol for t in open_trades):
-                logger.debug(f"Already have open trades for {self.symbol}")
+                logger.info(f"Already have open trades for {self.symbol}")
                 return False
             
             # Check risk manager
             can_trade = self.risk_manager.can_open_trade(self.current_bar)
             if not can_trade:
-                logger.debug("Risk manager prevents trading")
+                logger.info("Risk manager prevents trading")
             return can_trade
             
         except Exception as e:
@@ -555,11 +555,11 @@ class TradingBot:
         """Process a trading signal"""
         try:
             if signal['signal'] != 'long':
-                logger.debug(f"Signal is not long: {signal['signal']}")
+                logger.info(f"Signal is not long: {signal['signal']}")
                 return
 
             if not self.should_enter_trade():
-                logger.debug("Should not enter trade - checking conditions...")
+                logger.info("Should not enter trade - checking conditions...")
                 return
 
             symbol_info = self.exchange.get_symbol_info(self.symbol)

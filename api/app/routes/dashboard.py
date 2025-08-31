@@ -108,12 +108,34 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         live_equity = latest_equity.equity_usdt if latest_equity else 1000.0
         today_metrics = equity_repo.today_metrics()
     
-    # Calculate today's P&L (simplified - you might want to enhance this)
-    today_pnl = 0.0
-    if live_balances:
-        # For now, just show the current equity
-        # In a real implementation, you'd compare with yesterday's equity
-        today_pnl = live_equity - 1000.0  # Assuming starting balance was 1000
+    # Get initial equity from config for accurate P&L calculation
+    try:
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        sys.path.insert(0, project_root)
+        from trading_config import INITIAL_EQUITY
+        initial_equity = INITIAL_EQUITY
+    except ImportError:
+        initial_equity = 1000.0  # Fallback
+    
+    # Calculate today's P&L using actual initial equity
+    today_pnl = live_equity - initial_equity
+    
+    # Get current SOL price for title
+    current_sol_price = None
+    try:
+        with httpx.Client() as client:
+            price_response = client.get(
+                "https://api.binance.com/api/v3/ticker/price",
+                params={'symbol': 'SOLUSDT'}
+            )
+            if price_response.status_code == 200:
+                price_data = price_response.json()
+                current_sol_price = float(price_data['price'])
+    except Exception as e:
+        # If price fetch fails, use None
+        current_sol_price = None
     
     context = {
         "request": request,
@@ -122,10 +144,10 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "orders": recent_orders,
         "latest_equity": {"equity_usdt": live_equity},
         "today_metrics": {
-            "start_equity": 1000.0,
+            "start_equity": initial_equity,
             "current_equity": live_equity,
             "daily_pnl": today_pnl,
-            "daily_pnl_pct": (today_pnl / 1000.0 * 100) if 1000.0 > 0 else 0,
+            "daily_pnl_pct": (today_pnl / initial_equity * 100) if initial_equity > 0 else 0,
             "snapshots_count": 1
         },
         "alerts": recent_alerts,
@@ -133,7 +155,8 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "total_trades": trade_summary['total_trades'],
         "open_trades_count": len(open_trades),
         "live_balances": live_balances,
-        "mode": settings.MODE
+        "mode": settings.MODE,
+        "current_sol_price": current_sol_price
     }
     
     return templates.TemplateResponse("dashboard.html", context)
@@ -550,12 +573,28 @@ async def strategy_page(request: Request, db: Session = Depends(get_db)):
             }
         ]
     
+    # Get current SOL price for title
+    current_sol_price = None
+    try:
+        with httpx.Client() as client:
+            price_response = client.get(
+                "https://api.binance.com/api/v3/ticker/price",
+                params={'symbol': 'SOLUSDT'}
+            )
+            if price_response.status_code == 200:
+                price_data = price_response.json()
+                current_sol_price = float(price_data['price'])
+    except Exception as e:
+        # If price fetch fails, use None
+        current_sol_price = None
+    
     context = {
         "request": request,
         "strategy_analysis": strategy_analysis,
         "trading_symbol": TRADING_SYMBOL if 'TRADING_SYMBOL' in locals() else "SOLUSDT",
         "timeframe": TIMEFRAME if 'TIMEFRAME' in locals() else "15m",
-        "mode": settings.MODE
+        "mode": settings.MODE,
+        "current_sol_price": current_sol_price
     }
     
     return templates.TemplateResponse("strategy.html", context)
