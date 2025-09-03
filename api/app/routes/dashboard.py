@@ -598,3 +598,9 @@ async def strategy_page(request: Request, db: Session = Depends(get_db)):
     }
     
     return templates.TemplateResponse("strategy.html", context)
+
+
+@router.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    """Reports page"""
+    return templates.TemplateResponse("reports.html", {"request": request})

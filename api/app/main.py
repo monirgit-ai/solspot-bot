@@ -6,7 +6,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import logging
 import secrets
 from .config import settings
-from .routes import api, dashboard
+from .routes import api, dashboard, reports
 from .telegram_webhook import router as telegram_router
 from .db import create_tables
 
@@ -71,6 +71,7 @@ app.mount("/static", StaticFiles(directory="api/app/static"), name="static")
 # Include routers
 app.include_router(api.router, prefix="/api", tags=["api"])
 app.include_router(dashboard.router, tags=["dashboard"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
 
 

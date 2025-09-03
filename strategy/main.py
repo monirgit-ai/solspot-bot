@@ -61,12 +61,24 @@ class TradingBot:
         self.equity_repo = EquityRepository(self.db)
         self.alert_repo = AlertRepository(self.db)
 
+        # Initialize risk manager with config values, but will update with real equity
         self.risk_manager = RiskManager(
             initial_equity=self.initial_equity,
             risk_per_trade_pct=self.risk_pct,
             daily_loss_stop_pct=self.daily_stop_pct,
             cooldown_bars=self.cooldown_bars
         )
+        
+        # Initialize with real account balance if in live mode
+        if self.mode == "live":
+            try:
+                self.update_equity()
+                # Update risk manager with real starting equity
+                real_equity = self.get_current_equity()
+                self.risk_manager.initialize_with_real_equity(real_equity)
+                logger.info(f"Initialized with real equity: ${real_equity:.2f}")
+            except Exception as e:
+                logger.error(f"Failed to initialize with real equity: {e}")
 
         self.last_bar_time = None
         self.current_bar = 0
@@ -401,8 +413,8 @@ class TradingBot:
             logger.error(f"Error getting open trades: {e}")
             return []
 
-    def update_equity(self) -> None:
-        """Update equity snapshot"""
+    def get_current_equity(self) -> float:
+        """Get current total equity from account balances"""
         try:
             balances = self.exchange.balances()
             total_equity = balances.get('USDT', 0.0)
@@ -412,12 +424,22 @@ class TradingBot:
                 if symbol != 'USDT' and qty > 0:
                     try:
                         # Get current price for the symbol
-                        symbol_info = self.exchange.get_symbol_info(f"{symbol}USDT")
-                        if symbol_info:
-                            # Estimate value (simplified)
-                            total_equity += qty * 200  # Rough estimate for SOL
+                        current_price = self.exchange._get_current_price(f"{symbol}USDT")
+                        if current_price:
+                            total_equity += qty * current_price
                     except:
                         pass
+            
+            return total_equity
+            
+        except Exception as e:
+            logger.error(f"Error getting current equity: {e}")
+            return self.initial_equity  # Fallback to config value
+
+    def update_equity(self) -> None:
+        """Update equity snapshot"""
+        try:
+            total_equity = self.get_current_equity()
             
             self.equity_repo.insert_snapshot(total_equity)
             self.risk_manager.update_equity(total_equity)
@@ -432,6 +454,18 @@ class TradingBot:
         except Exception as e:
             logger.error(f"Error updating equity: {e}")
             self.record_api_failure()
+    
+    def fix_pnl_calculation(self) -> None:
+        """Fix P&L calculation by resetting with current equity"""
+        try:
+            if self.mode == "live":
+                current_equity = self.get_current_equity()
+                self.risk_manager.reset_daily_tracking_now()
+                logger.info(f"P&L calculation fixed: reset to current equity ${current_equity:.2f}")
+            else:
+                logger.info("P&L fix only available in live mode")
+        except Exception as e:
+            logger.error(f"Error fixing P&L calculation: {e}")
 
     def detect_new_bar(self, df: 'pd.DataFrame') -> bool:
         """Detect if we have a new bar"""

@@ -332,3 +332,37 @@ async def resume_bot(db: Session = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error resuming bot: {str(e)}")
+
+
+@router.post("/bot/fix-pnl")
+async def fix_pnl_calculation(db: Session = Depends(get_db)):
+    """Fix P&L calculation by resetting with current equity"""
+    try:
+        # Import the bot instance
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        sys.path.insert(0, project_root)
+        
+        from strategy.main import bot_instance
+        
+        if bot_instance:
+            bot_instance.fix_pnl_calculation()
+            
+            # Log alert
+            alert_repo = AlertRepository(db)
+            alert_repo.insert_alert('info', 'P&L calculation fixed via web interface')
+            
+            return {
+                "status": "success",
+                "message": "P&L calculation fixed successfully",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Bot instance not found"
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fixing P&L calculation: {str(e)}")

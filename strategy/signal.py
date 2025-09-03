@@ -60,21 +60,45 @@ def generate_signal(df: pd.DataFrame) -> Dict:
                 'entry_ref_price': None
             }
         
-        # Entry conditions for long position
+        # ENHANCED: Entry conditions for long position with better timing
         condition1 = close > ema20  # Close above EMA20
         condition2 = ema20 > ema50  # EMA20 above EMA50 (uptrend)
         condition3 = rsi > 50  # RSI above 50 (momentum)
         
-        # Chop detection
+        # NEW: Enhanced trend strength requirement (from loss analysis)
+        condition4 = ema_diff_pct >= 0.005  # Stronger trend (0.5% vs 0.3%)
+        
+        # NEW: Avoid overbought conditions (from loss analysis)
+        condition5 = rsi < 70  # RSI not overbought
+        
+        # NEW: Avoid oversold conditions
+        condition6 = rsi > 30  # RSI not oversold
+        
+        # NEW: Minimum volatility requirement
+        condition7 = atr >= close * 0.003  # ATR at least 0.3% of price
+        
+        # ENHANCED: Better chop detection
         in_chop = (ema_diff_pct < 0.003) and (45 <= rsi <= 55)
         not_in_chop = not in_chop
         
+        # NEW: Time-based filter (avoid worst trading hours from loss analysis)
+        current_hour = pd.Timestamp.now().hour
+        avoid_hours = list(range(6, 12))  # 06:00-12:00 (worst performing)
+        good_timing = current_hour not in avoid_hours
+        
+        # NEW: Day-based filter (avoid Sunday trading from loss analysis)
+        current_day = pd.Timestamp.now().strftime('%A')
+        avoid_days = ['Sunday']  # Worst performing day
+        good_day = current_day not in avoid_days
+        
         # All conditions must be met for long signal
-        long_signal = condition1 and condition2 and condition3 and not_in_chop
+        long_signal = (condition1 and condition2 and condition3 and condition4 and 
+                      condition5 and condition6 and condition7 and not_in_chop and 
+                      good_timing and good_day)
         
         if long_signal:
-            # Calculate stop loss and take profit
-            sl = close - 1.8 * atr
+            # Calculate stop loss and take profit with new multiplier
+            sl = close - 2.2 * atr  # Increased from 1.8 to 2.2
             tp1 = close + 1.5 * atr
             
             # Ensure stop loss is positive
@@ -83,6 +107,7 @@ def generate_signal(df: pd.DataFrame) -> Dict:
                 sl = close * 0.95
             
             logger.info(f"LONG signal generated - Close: {close:.2f}, SL: {sl:.2f}, TP1: {tp1:.2f}")
+            logger.info(f"Signal quality: Trend strength {ema_diff_pct*100:.2f}%, RSI: {rsi:.1f}, ATR: {atr:.2f}")
             
             return {
                 'signal': 'long',
@@ -95,11 +120,12 @@ def generate_signal(df: pd.DataFrame) -> Dict:
                     'ema50': ema50,
                     'rsi': rsi,
                     'atr': atr,
-                    'ema_diff_pct': ema_diff_pct
+                    'ema_diff_pct': ema_diff_pct,
+                    'signal_strength': min(ema_diff_pct * 1000, 100)  # 0-100 scale
                 }
             }
         else:
-            # Log why signal was not generated
+            # Log why signal was not generated with enhanced details
             reasons = []
             if not condition1:
                 reasons.append(f"close({close:.2f}) <= ema20({ema20:.2f})")
@@ -107,8 +133,20 @@ def generate_signal(df: pd.DataFrame) -> Dict:
                 reasons.append(f"ema20({ema20:.2f}) <= ema50({ema50:.2f})")
             if not condition3:
                 reasons.append(f"rsi({rsi:.1f}) <= 50")
+            if not condition4:
+                reasons.append(f"weak_trend(ema_diff_pct={ema_diff_pct:.4f} < 0.005)")
+            if not condition5:
+                reasons.append(f"overbought(rsi={rsi:.1f} >= 70)")
+            if not condition6:
+                reasons.append(f"oversold(rsi={rsi:.1f} <= 30)")
+            if not condition7:
+                reasons.append(f"low_volatility(atr={atr:.2f}, {atr/close*100:.2f}% of price)")
             if in_chop:
                 reasons.append(f"in_chop(ema_diff_pct={ema_diff_pct:.4f}, rsi={rsi:.1f})")
+            if not good_timing:
+                reasons.append(f"bad_timing(hour {current_hour} in avoid_hours {avoid_hours})")
+            if not good_day:
+                reasons.append(f"bad_day({current_day} in avoid_days {avoid_days})")
             
             logger.debug(f"No long signal - reasons: {', '.join(reasons)}")
             
@@ -123,7 +161,8 @@ def generate_signal(df: pd.DataFrame) -> Dict:
                     'ema50': ema50,
                     'rsi': rsi,
                     'atr': atr,
-                    'ema_diff_pct': ema_diff_pct
+                    'ema_diff_pct': ema_diff_pct,
+                    'rejected_reasons': reasons
                 }
             }
             

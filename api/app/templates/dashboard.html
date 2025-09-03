@@ -78,6 +78,9 @@
                                 <button type="button" class="btn btn-success btn-sm" id="resume-btn" onclick="resumeBot()" style="display: none;">
                                     <i class="fas fa-play me-1"></i> Resume
                                 </button>
+                                <button type="button" class="btn btn-warning btn-sm" onclick="fixPnlCalculation()">
+                                    <i class="fas fa-calculator me-1"></i> Fix P&L
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -791,6 +794,25 @@ async function resumeBot() {
     } catch (error) {
         console.error('Error resuming bot:', error);
         showAlert('Error resuming bot', 'danger');
+    }
+}
+
+async function fixPnlCalculation() {
+    try {
+        const response = await fetch('/api/bot/fix-pnl', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            showAlert('P&L calculation fixed successfully. Page will refresh in 3 seconds.', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            showAlert('Failed to fix P&L calculation: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error fixing P&L calculation:', error);
+        showAlert('Error fixing P&L calculation', 'danger');
     }
 }
 
